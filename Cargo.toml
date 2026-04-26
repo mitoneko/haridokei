@@ -1,0 +1,9 @@
+[package]
+name = "haridokei"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gpui = "0.2.2"
+log = "0.4.29"
+systemd-journal-logger = "2.2.2"
