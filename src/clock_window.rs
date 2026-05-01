@@ -1,7 +1,7 @@
-use std::{f32::consts::PI, sync::Arc};
+use std::{collections::HashSet, f32::consts::PI, sync::Arc};
 
 use ab_glyph::FontArc;
-use gpui::{AsyncApp, Img, Pixels, RenderImage, Size, div, img, prelude::*};
+use gpui::{AsyncApp, Img, Pixels, RenderImage, Size, img, prelude::*};
 use image::{Frame, Rgba};
 use imageproc::{
     drawing::{draw_filled_circle_mut, draw_polygon_mut, draw_text_mut, text_size},
@@ -14,6 +14,9 @@ type ImageBuffer = image::ImageBuffer<Rgba<u8>, Vec<u8>>;
 pub struct ClockWindow {
     base_image: Option<ImageBuffer>,
     size: Option<Size<Pixels>>,
+    // Runtime probe: track observed RenderImage IDs (ImageId.0) so we can detect
+    // whether gpui is accumulating unique textures over time.
+    seen_image_ids: HashSet<usize>,
 }
 
 impl ClockWindow {
@@ -21,6 +24,7 @@ impl ClockWindow {
         Self {
             base_image: None,
             size: None,
+            seen_image_ids: HashSet::new(),
         }
     }
 
@@ -310,11 +314,15 @@ impl ClockWindow {
 impl Render for ClockWindow {
     fn render(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         let win_size = window.bounds().size;
-        cx.spawn(async |_, cx: &mut AsyncApp| {
+        let entity_id = cx.entity_id();
+        cx.spawn(async move |_, cx: &mut AsyncApp| {
             std::thread::sleep(std::time::Duration::from_millis(40));
-            cx.refresh().unwrap();
+            cx.update(|cx| {
+                cx.notify(entity_id);
+            })
+            .unwrap();
         })
         .detach();
-        div().child(self.make_clock_img(win_size))
+        self.make_clock_img(win_size)
     }
 }
