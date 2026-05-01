@@ -25,7 +25,7 @@ fn main() {
             })),
             ..Default::default()
         };
-        app.open_window(win_opt, |_win, cx| cx.new(|_cx| ClockWindow))
+        app.open_window(win_opt, |_win, cx| cx.new(|_cx| ClockWindow::new()))
             .unwrap();
     });
     info!("application exited");
