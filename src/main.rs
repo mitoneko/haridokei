@@ -1,3 +1,5 @@
+mod clock_base_image;
+mod clock_elm;
 mod clock_window;
 mod options;
 
@@ -47,8 +49,13 @@ fn main() {
             })),
             ..Default::default()
         };
-        app.open_window(win_opt, |_win, cx| cx.new(|_cx| ClockWindow::new()))
-            .unwrap();
+        app.open_window(win_opt, |win, cx| {
+            cx.new(|_cx| {
+                let win_size = win.bounds().size;
+                ClockWindow::new(win_size)
+            })
+        })
+        .unwrap();
     });
     info!("針時計を終了しました。");
 }
