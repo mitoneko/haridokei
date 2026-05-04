@@ -73,6 +73,7 @@ impl ClockBaseImage {
             self.make_clock_base();
             let mut render_image = self.render_image.lock().unwrap();
             *render_image = None;
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
     }
 
