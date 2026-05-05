@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct GlobalSetting {
     size: Size<Pixels>,
     clock_background_color: [u8; 4],
