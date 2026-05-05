@@ -19,10 +19,11 @@ pub struct ClockBaseImage {
     radius: f32,
     img: ImageBuffer,
     render_image: Mutex<Option<Arc<RenderImage>>>,
+    clock_background_color: Rgba<u8>,
 }
 
 impl ClockBaseImage {
-    pub fn new(size: Size<Pixels>) -> Self {
+    pub fn new(size: Size<Pixels>, clock_background_color: [u8; 4]) -> Self {
         let center = Point::new(
             size.width.to_f64() as f32 / 2.0,
             size.height.to_f64() as f32 / 2.0,
@@ -41,6 +42,7 @@ impl ClockBaseImage {
             radius,
             img,
             render_image: Mutex::new(None),
+            clock_background_color: Rgba::from(clock_background_color),
         };
         obj.make_clock_base();
         obj
@@ -79,7 +81,7 @@ impl ClockBaseImage {
 
     /// 時計の背景を生成する。
     fn make_clock_base(&mut self) {
-        self.draw_clock_background(Rgba::from([0, 255, 255, 255]));
+        self.draw_clock_background(self.clock_background_color);
         self.draw_major_scale();
         self.draw_center_pin();
         self.draw_miner_scale();

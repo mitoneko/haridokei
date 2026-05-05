@@ -1,6 +1,6 @@
 [package]
 name = "haridokei"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 
@@ -14,3 +14,5 @@ chrono = { version = "0.4.44", features = ["clock"] }
 clap = { version = "4.6.1", features = ["derive"] }
 daemonize = "0.5.0"
 gpui = "0.2.2"
+confy = "2.0.0"
+serde = { version = "1.0.228", features = ["derive", "serde_derive"] }

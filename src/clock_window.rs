@@ -9,9 +9,9 @@ pub struct ClockWindow {
 }
 
 impl ClockWindow {
-    pub fn new(size: Size<Pixels>) -> Self {
+    pub fn new(size: Size<Pixels>, background_color: [u8; 4]) -> Self {
         Self {
-            base_image: ClockBaseImage::new(size),
+            base_image: ClockBaseImage::new(size, background_color),
         }
     }
 
@@ -41,7 +41,7 @@ impl Render for ClockWindow {
         let win_size = window.bounds().size;
         let entity_id = cx.entity_id();
         cx.spawn(async move |_, cx: &mut AsyncApp| {
-            gpui::Timer::after(std::time::Duration::from_millis(30)).await;
+            gpui::Timer::after(std::time::Duration::from_millis(33)).await;
             cx.update(|cx| {
                 cx.notify(entity_id);
             })

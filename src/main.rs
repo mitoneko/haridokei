@@ -1,17 +1,25 @@
 mod clock_base_image;
 mod clock_elm;
 mod clock_window;
+mod global_setting;
 mod options;
 
 use clap::Parser;
-use gpui::{Bounds, WindowBounds, WindowOptions, point, prelude::*, px, size};
+use gpui::{Bounds, Point, WindowBounds, WindowOptions, prelude::*};
 use log::{error, info};
 
-use crate::clock_window::ClockWindow;
+use crate::{clock_window::ClockWindow, global_setting::GlobalSetting};
 
 fn main() {
     // コマンドライン引数の処理
     let options = options::Options::parse();
+
+    // 設定ファイルの読み込み
+    let global_setting: GlobalSetting =
+        confy::load(global_setting::APP_NAME, None).unwrap_or_else(|e| {
+            error!("設定ファイルの読み込みに失敗。デフォルト値を使用します。:{e}");
+            GlobalSetting::default()
+        });
 
     // ロギング機構初期化
     systemd_journal_logger::JournalLog::new()
@@ -40,19 +48,31 @@ fn main() {
     }
 
     // gpui初期化
-    gpui::Application::new().run(|app| {
+    gpui::Application::new().run(move |app| {
         // メインウィンドウの生成
+        //let bound = Bounds::new(point(px(100.), px(100.)), size(px(500.), px(500.)));
         let win_opt = WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(Bounds {
-                origin: point(px(100.), px(100.)),
-                size: size(px(300.), px(300.)),
-            })),
+            window_bounds: Some(WindowBounds::Windowed(Bounds::new(
+                Point::default(),
+                global_setting.size(),
+            ))),
+            //window_bounds: Some(WindowBounds::Windowed(bound)),
             ..Default::default()
         };
+        app.set_global(global_setting);
         app.open_window(win_opt, |win, cx| {
-            cx.new(|_cx| {
+            win.on_window_should_close(cx, |win, app| {
+                let setting: &mut GlobalSetting = app.global_mut();
+                setting.set_size(win.bounds().size);
+                confy::store(global_setting::APP_NAME, None, setting).unwrap_or_else(|e| {
+                    error!("設定ファイルの保存に失敗しました。:{e}");
+                });
+                true
+            });
+            cx.new(|cx| {
                 let win_size = win.bounds().size;
-                ClockWindow::new(win_size)
+                let clock_background_color = cx.global::<GlobalSetting>().clock_background_color();
+                ClockWindow::new(win_size, clock_background_color)
             })
         })
         .unwrap();
