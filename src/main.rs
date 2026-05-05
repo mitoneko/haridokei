@@ -15,7 +15,11 @@ fn main() {
     let options = options::Options::parse();
 
     // 設定ファイルの読み込み
-    let global_setting: GlobalSetting = confy::load(global_setting::APP_NAME, None).unwrap();
+    let global_setting: GlobalSetting =
+        confy::load(global_setting::APP_NAME, None).unwrap_or_else(|e| {
+            error!("設定ファイルの読み込みに失敗。デフォルト値を使用します。:{e}");
+            GlobalSetting::default()
+        });
 
     // ロギング機構初期化
     systemd_journal_logger::JournalLog::new()
@@ -60,7 +64,9 @@ fn main() {
             win.on_window_should_close(cx, |win, app| {
                 let setting: &mut GlobalSetting = app.global_mut();
                 setting.set_size(win.bounds().size);
-                confy::store(global_setting::APP_NAME, None, setting).unwrap();
+                confy::store(global_setting::APP_NAME, None, setting).unwrap_or_else(|e| {
+                    error!("設定ファイルの保存に失敗しました。:{e}");
+                });
                 true
             });
             cx.new(|cx| {
