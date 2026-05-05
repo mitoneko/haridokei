@@ -9,9 +9,9 @@ pub struct ClockWindow {
 }
 
 impl ClockWindow {
-    pub fn new(size: Size<Pixels>, back_ground_color: [u8; 4]) -> Self {
+    pub fn new(size: Size<Pixels>, background_color: [u8; 4]) -> Self {
         Self {
-            base_image: ClockBaseImage::new(size, back_ground_color),
+            base_image: ClockBaseImage::new(size, background_color),
         }
     }
 
