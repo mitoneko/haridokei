@@ -41,7 +41,7 @@ impl Render for ClockWindow {
         let win_size = window.bounds().size;
         let entity_id = cx.entity_id();
         cx.spawn(async move |_, cx: &mut AsyncApp| {
-            gpui::Timer::after(std::time::Duration::from_millis(10)).await;
+            gpui::Timer::after(std::time::Duration::from_millis(33)).await;
             cx.update(|cx| {
                 cx.notify(entity_id);
             })
