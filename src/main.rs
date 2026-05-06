@@ -76,10 +76,11 @@ fn main() {
             })
         })
         .unwrap();
-        info!("ウィンドウの初期化を終了");
+        let window_initialized_message = "ウィンドウの初期化を終了しました。";
+        info!("{}", window_initialized_message);
         sd_notify::notify(&[
             sd_notify::NotifyState::Ready,
-            sd_notify::NotifyState::Status("ウィンドウの初期化を終了"),
+            sd_notify::NotifyState::Status(window_initialized_message),
         ])
         .unwrap_or_else(|e| {
             error!("systemdへの通知に失敗しました。:{}", e);
