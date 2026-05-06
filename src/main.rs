@@ -76,6 +76,14 @@ fn main() {
             })
         })
         .unwrap();
+        info!("ウィンドウの初期化を終了");
+        sd_notify::notify(&[
+            sd_notify::NotifyState::Ready,
+            sd_notify::NotifyState::Status("ウィンドウの初期化を終了"),
+        ])
+        .unwrap_or_else(|e| {
+            error!("systemdへの通知に失敗しました。:{}", e);
+        });
     });
     info!("針時計を終了しました。");
 }
