@@ -4,7 +4,10 @@ mod clock_window;
 mod global_setting;
 mod options;
 
-use std::sync::{Arc, atomic::AtomicBool};
+use std::{
+    path::PathBuf,
+    sync::{Arc, atomic::AtomicBool},
+};
 
 use clap::Parser;
 use gpui::{WindowBounds, WindowOptions, prelude::*, px, size};
@@ -40,8 +43,16 @@ fn main() {
 
     // 指定されていればデーモン化する
     if options.daemon {
+        let pid_path = match std::env::var("XDG_RUNTIME_DIR") {
+            Ok(runtime_dir) => {
+                let mut path = PathBuf::from(runtime_dir);
+                path.push("haridokei.pid");
+                path
+            }
+            Err(_) => PathBuf::from("/tmp/haridokei.pid"),
+        };
         let daemonize = daemonize::Daemonize::new()
-            .pid_file("/tmp/haridokei.pid")
+            .pid_file(pid_path)
             .chown_pid_file(true);
         match daemonize.start() {
             Ok(_) => info!("デーモン化に成功しました。"),
