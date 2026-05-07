@@ -1,17 +1,26 @@
+use std::sync::{Arc, atomic::AtomicBool};
+
 use gpui::{AsyncApp, Pixels, Size, prelude::*};
 use imageproc::point::Point;
+use log::info;
 
 use crate::{clock_base_image::ClockBaseImage, clock_elm::Clock};
 
 /// 時計を表示するコンテキスト
 pub struct ClockWindow {
     base_image: ClockBaseImage,
+    is_terminate: Arc<AtomicBool>,
 }
 
 impl ClockWindow {
-    pub fn new(size: Size<Pixels>, background_color: [u8; 4]) -> Self {
+    pub fn new(
+        size: Size<Pixels>,
+        background_color: [u8; 4],
+        is_terminate: Arc<AtomicBool>,
+    ) -> Self {
         Self {
             base_image: ClockBaseImage::new(size, background_color),
+            is_terminate,
         }
     }
 
@@ -48,6 +57,10 @@ impl Render for ClockWindow {
             .unwrap();
         })
         .detach();
+        if self.is_terminate.load(std::sync::atomic::Ordering::Relaxed) {
+            info!("終了シグナルを受信しました。終了処理に入ります。");
+            cx.quit();
+        }
         self.base_image.set_size(win_size);
         Clock::new(self.base_image.image())
     }

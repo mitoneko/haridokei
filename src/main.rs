@@ -4,6 +4,8 @@ mod clock_window;
 mod global_setting;
 mod options;
 
+use std::sync::{Arc, atomic::AtomicBool};
+
 use clap::Parser;
 use gpui::{Bounds, Point, WindowBounds, WindowOptions, prelude::*};
 use log::{error, info};
@@ -47,6 +49,15 @@ fn main() {
         }
     }
 
+    // シグナル受信ハンドラの登録
+    let is_terminate = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGINT, is_terminate.clone())
+        .map(|_id| ())
+        .unwrap_or_else(|e| error!("シグナルハンドラの登録に失敗しました。(SIGINT):{}", e));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, is_terminate.clone())
+        .map(|_id| ())
+        .unwrap_or_else(|e| error!("シグナルハンドラの登録に失敗しました。(SIGTERM):{}", e));
+
     // gpui初期化
     gpui::Application::new().run(move |app| {
         // メインウィンドウの生成
@@ -72,7 +83,7 @@ fn main() {
             cx.new(|cx| {
                 let win_size = win.bounds().size;
                 let clock_background_color = cx.global::<GlobalSetting>().clock_background_color();
-                ClockWindow::new(win_size, clock_background_color)
+                ClockWindow::new(win_size, clock_background_color, is_terminate.clone())
             })
         })
         .unwrap();
