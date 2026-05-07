@@ -7,7 +7,7 @@ mod options;
 use std::sync::{Arc, atomic::AtomicBool};
 
 use clap::Parser;
-use gpui::{Bounds, Point, WindowBounds, WindowOptions, prelude::*, px, size};
+use gpui::{WindowBounds, WindowOptions, prelude::*, px, size};
 use log::{error, info};
 
 use crate::{clock_window::ClockWindow, global_setting::GlobalSetting};
@@ -61,21 +61,16 @@ fn main() {
     // gpui初期化
     gpui::Application::new().run(move |app| {
         // メインウィンドウの生成
-        //let bound = Bounds::new(point(px(100.), px(100.)), size(px(500.), px(500.)));
         let win_opt = WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(Bounds::new(
-                Point::default(),
-                global_setting.size(),
-            ))),
+            window_bounds: Some(WindowBounds::Windowed(global_setting.bounds())),
             window_min_size: Some(size(px(50.), px(50.))),
-            //window_bounds: Some(WindowBounds::Windowed(bound)),
             ..Default::default()
         };
         app.set_global(global_setting);
         app.open_window(win_opt, |win, cx| {
             win.on_window_should_close(cx, |win, app| {
                 let setting: &mut GlobalSetting = app.global_mut();
-                setting.set_size(win.bounds().size);
+                setting.set_bounds(win.bounds());
                 confy::store(global_setting::APP_NAME, None, setting).unwrap_or_else(|e| {
                     error!("設定ファイルの保存に失敗しました。:{e}");
                 });
