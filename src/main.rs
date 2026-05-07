@@ -7,7 +7,7 @@ mod options;
 use std::sync::{Arc, atomic::AtomicBool};
 
 use clap::Parser;
-use gpui::{Bounds, Point, WindowBounds, WindowOptions, prelude::*};
+use gpui::{Bounds, Point, WindowBounds, WindowOptions, prelude::*, px, size};
 use log::{error, info};
 
 use crate::{clock_window::ClockWindow, global_setting::GlobalSetting};
@@ -67,6 +67,7 @@ fn main() {
                 Point::default(),
                 global_setting.size(),
             ))),
+            window_min_size: Some(size(px(50.), px(50.))),
             //window_bounds: Some(WindowBounds::Windowed(bound)),
             ..Default::default()
         };
