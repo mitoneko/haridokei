@@ -44,12 +44,12 @@ fn main() {
     // 指定されていればデーモン化する
     if options.daemon {
         let pid_path = match std::env::var("XDG_RUNTIME_DIR") {
-            Ok(runtime_dir) => {
+            Ok(runtime_dir) if !runtime_dir.trim().is_empty() => {
                 let mut path = PathBuf::from(runtime_dir);
                 path.push("haridokei.pid");
                 path
             }
-            Err(_) => PathBuf::from("/tmp/haridokei.pid"),
+            Ok(_) | Err(_) => PathBuf::from("/tmp/haridokei.pid"),
         };
         let daemonize = daemonize::Daemonize::new()
             .pid_file(pid_path)

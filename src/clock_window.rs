@@ -47,6 +47,10 @@ impl ClockWindow {
 
 impl Render for ClockWindow {
     fn render(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.is_terminate.load(std::sync::atomic::Ordering::Relaxed) {
+            info!("終了シグナルを受信しました。終了処理に入ります。");
+            cx.quit();
+        }
         let win_size = window.bounds().size;
         let entity_id = cx.entity_id();
         cx.spawn(async move |_, cx: &mut AsyncApp| {
@@ -57,10 +61,6 @@ impl Render for ClockWindow {
             .unwrap();
         })
         .detach();
-        if self.is_terminate.load(std::sync::atomic::Ordering::Relaxed) {
-            info!("終了シグナルを受信しました。終了処理に入ります。");
-            cx.quit();
-        }
         self.base_image.set_size(win_size);
         Clock::new(self.base_image.image())
     }

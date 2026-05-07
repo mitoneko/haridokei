@@ -17,7 +17,7 @@ haridokei [-d] [--help]
 -dオプション有効時に、このスクリプトを実行すると、時計を画面右上に移動できる。
 
 ## 設定ファイル
-```~/.config/haridokei/default-config.toml```に設定ファイルを自動で生成する。
+`~/.config/haridokei/default-config.toml`に設定ファイルを自動で生成する。
 このファイルを編集することで、時計の見た目を変更できる。
 ただし、bounds.originは、現時点では事実上無視される。
 bounds.sizeは、有効。前回終了時のサイズを自動で保存する。

@@ -1,6 +1,6 @@
 #!/bin/sh
 # move_by_pid.sh
-# /tmp/haridokei.pid から PID を読み、wmctrl -lp で対応するウィンドウを探して右上に移動する (X11/wmctrl 必須)
+# $XDG_RUNTIME_DIR/haridokei.pid から PID を読み、wmctrl -lp で対応するウィンドウを探して右上に移動する (X11/wmctrl 必須)
 
 PIDFILE="$XDG_RUNTIME_DIR/haridokei.pid"
 MARGIN=16        # 画面端からの余白(px)
@@ -44,4 +44,3 @@ done
 
 echo "window for pid $APP_PID not found after retries" >&2
 exit 2
-
