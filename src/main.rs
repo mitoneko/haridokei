@@ -5,7 +5,9 @@ mod global_setting;
 mod options;
 
 use std::{
-    path::PathBuf,
+    fs::{File, OpenOptions},
+    io::Write,
+    path::{Path, PathBuf},
     sync::{Arc, atomic::AtomicBool},
 };
 
@@ -15,7 +17,7 @@ use log::{error, info};
 
 use crate::{clock_window::ClockWindow, global_setting::GlobalSetting};
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // コマンドライン引数の処理
     let options = options::Options::parse();
 
@@ -42,22 +44,22 @@ fn main() {
     info!("針時計を開始しました。");
 
     // 指定されていればデーモン化する
+    // pidファイルを生成する
+    let pid_path = get_pid_file_path().map_err(|e| {
+        error!("PIDファイルの生成に失敗しました。:{}", e);
+        e
+    })?;
+    let mut _pid_file = None;
     if options.daemon {
-        let pid_path = match std::env::var("XDG_RUNTIME_DIR") {
-            Ok(runtime_dir) if !runtime_dir.trim().is_empty() => {
-                let mut path = PathBuf::from(runtime_dir);
-                path.push("haridokei.pid");
-                path
-            }
-            Ok(_) | Err(_) => PathBuf::from("/tmp/haridokei.pid"),
-        };
         let daemonize = daemonize::Daemonize::new()
-            .pid_file(pid_path)
+            .pid_file(&pid_path)
             .chown_pid_file(true);
         match daemonize.start() {
             Ok(_) => info!("デーモン化に成功しました。"),
             Err(e) => error!("デーモン化に失敗しました。:{}", e),
         }
+    } else {
+        _pid_file = Some(PidFile::new(&pid_path)?);
     }
 
     // シグナル受信ハンドラの登録
@@ -105,4 +107,78 @@ fn main() {
         });
     });
     info!("針時計を終了しました。");
+    Ok(())
+}
+
+/// PIDファイルのパスを取得する。
+/// ファイルの生成場所は`$XDG_RINTIME_DIR/`。環境変数のない場合、`/tmp`。
+/// もし、既存のファイルが存在する場合、ロックの可否を確認し、ロックが取れないからエラーを返す。
+/// 既存ファイルのロックが取れる場合、そのファイルを削除しておく。
+fn get_pid_file_path() -> Result<PathBuf, std::io::Error> {
+    let pid_path = match std::env::var("XDG_RUNTIME_DIR") {
+        Ok(runtime_dir) if !runtime_dir.trim().is_empty() => {
+            let mut path = PathBuf::from(runtime_dir);
+            path.push("haridokei.pid");
+            path
+        }
+        Ok(_) | Err(_) => PathBuf::from("/tmp/haridokei.pid"),
+    };
+    if pid_path.exists() {
+        {
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&pid_path)?;
+            file.try_lock()?;
+        }
+        std::fs::remove_file(&pid_path)?;
+    }
+    info!("PIDファイルのパス:{:?}", pid_path);
+    Ok(pid_path)
+}
+
+struct PidFile {
+    _file: File,
+    file_path: PathBuf,
+}
+
+impl PidFile {
+    fn new(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
+        let path = path.as_ref();
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .map_err(|e| {
+                error!("PIDファイルの生成に失敗しました。:{}", e);
+                e
+            })?;
+        file.try_lock_shared().map_err(|e| {
+            error!("PIDファイルのロックに失敗しました。:{}", e);
+            e
+        })?;
+        write!(file, "{}", std::process::id()).or_else(|e| {
+            error!("PIDファイルへの書き込みに失敗しました。:{}", e);
+            Err(e)
+        })?;
+        file.flush().map_err(|e| {
+            error!("PIDファイルのフラッシュに失敗しました。:{}", e);
+            e
+        })?;
+
+        Ok(Self {
+            _file: file,
+            file_path: path.to_path_buf(),
+        })
+    }
+}
+
+impl Drop for PidFile {
+    fn drop(&mut self) {
+        if let Err(e) = std::fs::remove_file(&self.file_path) {
+            error!("PIDファイルの削除に失敗しました。:{}", e);
+        }
+        info!("PIDファイルを削除しました。");
+    }
 }
