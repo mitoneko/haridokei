@@ -114,7 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// PIDファイルのパスを取得する。
-/// ファイルの生成場所は`$XDG_RINTIME_DIR/`。環境変数のない場合、`/tmp`。
+/// ファイルの生成場所は`$XDG_RUNTIME_DIR/`。環境変数のない場合、`/tmp`。
 /// もし、既存のファイルが存在する場合、ロックの可否を確認し、ロックが取れないからエラーを返す。
 /// 既存ファイルのロックが取れる場合、そのファイルを削除しておく。
 fn get_pid_file_path() -> Result<PathBuf, std::io::Error> {
