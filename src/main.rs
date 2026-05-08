@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 指定されていればデーモン化する
     // pidファイルを生成する
     let pid_path = get_pid_file_path().map_err(|e| {
-        error!("PIDファイルの生成に失敗しました。:{}", e);
+        error!("PIDファイル名の取得に失敗しました。:{}", e);
         e
     })?;
     let mut _pid_file = None;
@@ -56,7 +56,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .chown_pid_file(true);
         match daemonize.start() {
             Ok(_) => info!("デーモン化に成功しました。"),
-            Err(e) => error!("デーモン化に失敗しました。:{}", e),
+            Err(e) => {
+                error!("デーモン化に失敗しました。:{}", e);
+                Err(e)?
+            }
         }
     } else {
         _pid_file = Some(PidFile::new(&pid_path)?);
@@ -124,13 +127,11 @@ fn get_pid_file_path() -> Result<PathBuf, std::io::Error> {
         Ok(_) | Err(_) => PathBuf::from("/tmp/haridokei.pid"),
     };
     if pid_path.exists() {
-        {
-            let file = std::fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(&pid_path)?;
-            file.try_lock()?;
-        }
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&pid_path)?;
+        file.try_lock()?;
         std::fs::remove_file(&pid_path)?;
     }
     info!("PIDファイルのパス:{:?}", pid_path);
@@ -154,7 +155,7 @@ impl PidFile {
                 error!("PIDファイルの生成に失敗しました。:{}", e);
                 e
             })?;
-        file.try_lock_shared().map_err(|e| {
+        file.try_lock().map_err(|e| {
             error!("PIDファイルのロックに失敗しました。:{}", e);
             e
         })?;
@@ -164,6 +165,10 @@ impl PidFile {
         })?;
         file.flush().map_err(|e| {
             error!("PIDファイルのフラッシュに失敗しました。:{}", e);
+            e
+        })?;
+        file.try_lock_shared().map_err(|e| {
+            error!("PIDファイルのロックのダウングレードに失敗しました。:{}", e);
             e
         })?;
 
