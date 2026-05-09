@@ -85,6 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             window_bounds: Some(WindowBounds::Windowed(global_setting.bounds())),
             window_min_size: Some(size(px(50.), px(50.))),
             titlebar: Some(titlebar),
+            app_id: Some("jp.laki.haridokei".into()),
             ..Default::default()
         };
         app.set_global(global_setting);
