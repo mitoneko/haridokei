@@ -12,7 +12,7 @@ use std::{
 };
 
 use clap::Parser;
-use gpui::{WindowBounds, WindowOptions, prelude::*, px, size};
+use gpui::{TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size};
 use log::{error, info};
 
 use crate::{clock_window::ClockWindow, global_setting::GlobalSetting};
@@ -77,9 +77,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // gpui初期化
     gpui::Application::new().run(move |app| {
         // メインウィンドウの生成
+        let titlebar = TitlebarOptions {
+            title: Some("Haridokei".into()),
+            ..Default::default()
+        };
         let win_opt = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(global_setting.bounds())),
             window_min_size: Some(size(px(50.), px(50.))),
+            titlebar: Some(titlebar),
             ..Default::default()
         };
         app.set_global(global_setting);
