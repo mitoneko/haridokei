@@ -17,6 +17,11 @@ use log::{error, info};
 
 use crate::{clock_window::ClockWindow, global_setting::GlobalSetting};
 
+/// アプリケーションID(WM_CLASSに使用される)
+const APP_ID: &str = "jp.laki.haridokei";
+/// タイトルバーの表示名
+const APP_NAME: &str = "Haridokei";
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // コマンドライン引数の処理
     let options = options::Options::parse();
@@ -78,14 +83,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     gpui::Application::new().run(move |app| {
         // メインウィンドウの生成
         let titlebar = TitlebarOptions {
-            title: Some("Haridokei".into()),
+            title: Some(APP_NAME.into()),
             ..Default::default()
         };
         let win_opt = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(global_setting.bounds())),
             window_min_size: Some(size(px(50.), px(50.))),
             titlebar: Some(titlebar),
-            app_id: Some("jp.laki.haridokei".into()),
+            app_id: Some(APP_ID.into()),
             ..Default::default()
         };
         app.set_global(global_setting);
