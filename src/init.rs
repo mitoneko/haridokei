@@ -104,9 +104,9 @@ impl PidFile {
 
     /// PIDファイルに登録のPIDを現在のものに更新する。
     pub fn update_pid(&mut self) -> Result<()> {
+        self.file.try_lock()?;
         self.file.set_len(0)?;
         self.file.rewind()?;
-        self.file.try_lock()?;
         write!(self.file, "{}", std::process::id())?;
         self.file.flush()?;
         self.file.try_lock_shared()?;
