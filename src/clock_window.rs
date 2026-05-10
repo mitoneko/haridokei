@@ -1,10 +1,60 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
-use gpui::{AsyncApp, Pixels, Size, prelude::*};
+use gpui::{
+    App, AsyncApp, Pixels, Size, TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size,
+};
 use imageproc::point::Point;
-use log::info;
+use log::{error, info};
 
-use crate::{clock_base_image::ClockBaseImage, clock_elm::Clock};
+use crate::{
+    clock_base_image::ClockBaseImage,
+    clock_elm::Clock,
+    global_setting::{self, GlobalSetting, GlobalSettingFile},
+};
+
+/// タイトルバーの表示名
+const TITLE_NAME: &str = "Haridokei";
+/// アプリケーションID(WM_CLASSに使用される)
+const APP_ID: &str = "jp.laki.haridokei";
+
+/// メインウィンドウをオープンする
+pub fn open_main_window(app: &mut App) {
+    let global_setting: &GlobalSetting = app.global();
+    // メインウィンドウの生成
+    let titlebar = TitlebarOptions {
+        title: Some(TITLE_NAME.into()),
+        ..Default::default()
+    };
+    let win_opt = WindowOptions {
+        window_bounds: Some(WindowBounds::Windowed(global_setting.bounds())),
+        window_min_size: Some(size(px(50.), px(50.))),
+        titlebar: Some(titlebar),
+        app_id: Some(APP_ID.into()),
+        ..Default::default()
+    };
+    app.open_window(win_opt, |win, cx| {
+        win.on_window_should_close(cx, |win, app| {
+            let setting: &mut GlobalSetting = app.global_mut();
+            setting.set_bounds(win.bounds());
+            let setting_file: GlobalSettingFile = setting.clone().into();
+            confy::store(global_setting::APP_NAME, None, setting_file).unwrap_or_else(|e| {
+                error!("設定ファイルの保存に失敗しました。:{e}");
+            });
+            true
+        });
+        cx.new(|cx| {
+            let win_size = win.bounds().size;
+            let global_setting: &GlobalSetting = cx.global();
+            let clock_background_color = global_setting.clock_background_color();
+            ClockWindow::new(
+                win_size,
+                clock_background_color,
+                global_setting.is_terminated(),
+            )
+        })
+    })
+    .unwrap();
+}
 
 /// 時計を表示するコンテキスト
 pub struct ClockWindow {

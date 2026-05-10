@@ -52,6 +52,19 @@ pub fn register_signal_handler() -> Arc<AtomicBool> {
     is_terminate
 }
 
+/// systemdに起動完了を通知する。
+pub fn notify_systemd_ready() {
+    let window_initialized_message = "ウィンドウの初期化を終了しました。";
+    info!("{}", window_initialized_message);
+    sd_notify::notify(&[
+        sd_notify::NotifyState::Ready,
+        sd_notify::NotifyState::Status(window_initialized_message),
+    ])
+    .unwrap_or_else(|e| {
+        error!("systemdへの通知に失敗しました。:{}", e);
+    });
+}
+
 /// PIDファイルの維持管理を行う
 pub struct PidFile {
     file: File,
