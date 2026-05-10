@@ -2,15 +2,10 @@ mod clock_base_image;
 mod clock_elm;
 mod clock_window;
 mod global_setting;
+mod init;
 mod options;
 
-use std::{
-    fs::{File, OpenOptions},
-    io::Write,
-    path::{Path, PathBuf},
-    sync::{Arc, atomic::AtomicBool},
-};
-
+use anyhow::Result;
 use clap::Parser;
 use gpui::{TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size};
 use log::{error, info};
@@ -20,11 +15,11 @@ use crate::{clock_window::ClockWindow, global_setting::GlobalSetting};
 /// アプリケーションID(WM_CLASSに使用される)
 const APP_ID: &str = "jp.laki.haridokei";
 /// タイトルバーの表示名
-const APP_NAME: &str = "Haridokei";
+const TITLE_NAME: &str = "Haridokei";
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // コマンドライン引数の処理
-    let options = options::Options::parse();
+fn main() -> Result<()> {
+    let options = options::Options::parse(); // コマンドライン引数の処理
+    init::init_logging(&options); // ロギング機構初期化
 
     // 設定ファイルの読み込み
     let global_setting: GlobalSetting =
@@ -33,57 +28,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             GlobalSetting::default()
         });
 
-    // ロギング機構初期化
-    systemd_journal_logger::JournalLog::new()
-        .unwrap()
-        .with_syslog_identifier("haridokei".to_string())
-        .install()
-        .unwrap();
-    if options.debug {
-        log::set_max_level(log::LevelFilter::Debug);
-    } else if options.info {
-        log::set_max_level(log::LevelFilter::Info)
-    } else {
-        log::set_max_level(log::LevelFilter::Warn);
-    }
-    info!("針時計を開始しました。");
-
-    // 指定されていればデーモン化する
-    // pidファイルを生成する
-    let pid_path = get_pid_file_path().map_err(|e| {
-        error!("PIDファイル名の取得に失敗しました。:{}", e);
+    let mut pid_file = init::PidFile::new().map_err(|e| {
+        error!("PIDファイルの生成に失敗しました。:{e}");
         e
     })?;
-    let mut _pid_file = None;
     if options.daemon {
-        let daemonize = daemonize::Daemonize::new()
-            .pid_file(&pid_path)
-            .chown_pid_file(true);
-        match daemonize.start() {
-            Ok(_) => info!("デーモン化に成功しました。"),
-            Err(e) => {
-                error!("デーモン化に失敗しました。:{}", e);
-                Err(e)?
-            }
-        }
-    } else {
-        _pid_file = Some(PidFile::new(&pid_path)?);
-    }
+        init::do_daemonize(&mut pid_file).map_err(|e| {
+            error!("デーモン化に失敗しました。:{e}");
+            e
+        })?;
+    };
 
-    // シグナル受信ハンドラの登録
-    let is_terminate = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(signal_hook::consts::SIGINT, is_terminate.clone())
-        .map(|_id| ())
-        .unwrap_or_else(|e| error!("シグナルハンドラの登録に失敗しました。(SIGINT):{}", e));
-    signal_hook::flag::register(signal_hook::consts::SIGTERM, is_terminate.clone())
-        .map(|_id| ())
-        .unwrap_or_else(|e| error!("シグナルハンドラの登録に失敗しました。(SIGTERM):{}", e));
+    let is_terminate = init::register_signal_handler();
+
+    info!("針時計を開始しました。");
 
     // gpui初期化
     gpui::Application::new().run(move |app| {
         // メインウィンドウの生成
         let titlebar = TitlebarOptions {
-            title: Some(APP_NAME.into()),
+            title: Some(TITLE_NAME.into()),
             ..Default::default()
         };
         let win_opt = WindowOptions {
@@ -122,79 +86,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     info!("針時計を終了しました。");
     Ok(())
-}
-
-/// PIDファイルのパスを取得する。
-/// ファイルの生成場所は`$XDG_RUNTIME_DIR/`。環境変数のない場合、`/tmp`。
-/// もし、既存のファイルが存在する場合、ロックの可否を確認し、ロックが取れないからエラーを返す。
-/// 既存ファイルのロックが取れる場合、そのファイルを削除しておく。
-fn get_pid_file_path() -> Result<PathBuf, std::io::Error> {
-    let pid_path = match std::env::var("XDG_RUNTIME_DIR") {
-        Ok(runtime_dir) if !runtime_dir.trim().is_empty() => {
-            let mut path = PathBuf::from(runtime_dir);
-            path.push("haridokei.pid");
-            path
-        }
-        Ok(_) | Err(_) => PathBuf::from("/tmp/haridokei.pid"),
-    };
-    if pid_path.exists() {
-        let file = std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&pid_path)?;
-        file.try_lock()?;
-        std::fs::remove_file(&pid_path)?;
-    }
-    info!("PIDファイルのパス:{:?}", pid_path);
-    Ok(pid_path)
-}
-
-struct PidFile {
-    _file: File,
-    file_path: PathBuf,
-}
-
-impl PidFile {
-    fn new(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
-        let path = path.as_ref();
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)
-            .map_err(|e| {
-                error!("PIDファイルの生成に失敗しました。:{}", e);
-                e
-            })?;
-        file.try_lock().map_err(|e| {
-            error!("PIDファイルのロックに失敗しました。:{}", e);
-            e
-        })?;
-        write!(file, "{}", std::process::id()).or_else(|e| {
-            error!("PIDファイルへの書き込みに失敗しました。:{}", e);
-            Err(e)
-        })?;
-        file.flush().map_err(|e| {
-            error!("PIDファイルのフラッシュに失敗しました。:{}", e);
-            e
-        })?;
-        file.try_lock_shared().map_err(|e| {
-            error!("PIDファイルのロックのダウングレードに失敗しました。:{}", e);
-            e
-        })?;
-
-        Ok(Self {
-            _file: file,
-            file_path: path.to_path_buf(),
-        })
-    }
-}
-
-impl Drop for PidFile {
-    fn drop(&mut self) {
-        if let Err(e) = std::fs::remove_file(&self.file_path) {
-            error!("PIDファイルの削除に失敗しました。:{}", e);
-        }
-        info!("PIDファイルを削除しました。");
-    }
 }
