@@ -28,14 +28,12 @@ fn main() -> Result<()> {
             GlobalSetting::default()
         });
 
-    let mut pid_file = init::PidFile::new().map_err(|e| {
-        error!("PIDファイルの生成に失敗しました。:{e}");
-        e
+    let mut pid_file = init::PidFile::new().inspect_err(|e| {
+        error!("PIDファイルの生成に失敗しました。:{e:?}");
     })?;
     if options.daemon {
-        init::do_daemonize(&mut pid_file).map_err(|e| {
-            error!("デーモン化に失敗しました。:{e}");
-            e
+        init::do_daemonize(&mut pid_file).inspect_err(|e| {
+            error!("デーモン化に失敗しました。:{e:?}");
         })?;
     };
 
