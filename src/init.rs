@@ -3,7 +3,7 @@
 use crate::options::Options;
 
 use anyhow::{Context, Result};
-use log::{error, info};
+use log::{error, info, warn};
 use std::{
     fs::{File, OpenOptions},
     io::{Seek, Write},
@@ -69,6 +69,7 @@ pub fn notify_systemd_ready() {
 pub struct PidFile {
     file: File,
     file_path: PathBuf,
+    is_enable: bool,
 }
 
 impl PidFile {
@@ -79,15 +80,17 @@ impl PidFile {
         let file = OpenOptions::new()
             .write(true)
             .create(true)
-            .truncate(true)
+            .truncate(false) // ロック取得の確定後、明示的に、set_len(0)で消すため、ここでは、falseとする。
             .open(&path)
             .context("PIDファイルの生成に失敗しました。")?;
         let mut ret = Self {
             file,
             file_path: path.to_path_buf(),
+            is_enable: false,
         };
         ret.update_pid()
             .context("PIDファイルのPID登録に失敗しました。")?;
+        ret.is_enable = true;
         Ok(ret)
     }
 
@@ -103,21 +106,14 @@ impl PidFile {
             }
             Ok(_) | Err(_) => PathBuf::from(format!("/tmp/{}", Self::PID_FILE_NAME)),
         };
-        if pid_path.exists() {
-            let file = std::fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(&pid_path)
-                .context("既存PIDファイルがオープンできません。")?;
-            file.try_lock()
-                .context("PIDファイルのロックに失敗しました。")?;
-        }
         Ok(pid_path)
     }
 
     /// PIDファイルに登録のPIDを現在のものに更新する。
     pub fn update_pid(&mut self) -> Result<()> {
-        self.file.try_lock()?;
+        self.file
+            .try_lock()
+            .context("PIDファイルのロックに失敗しました。二重起動の可能性があります。")?;
         self.file.set_len(0)?;
         self.file.rewind()?;
         write!(self.file, "{}", std::process::id())?;
@@ -129,9 +125,13 @@ impl PidFile {
 
 impl Drop for PidFile {
     fn drop(&mut self) {
-        if let Err(e) = std::fs::remove_file(&self.file_path) {
-            error!("PIDファイルの削除に失敗しました。:{}", e);
-        }
-        info!("PIDファイルを削除しました。");
+        if self.is_enable {
+            if let Err(e) = std::fs::remove_file(&self.file_path) {
+                error!("PIDファイルの削除に失敗しました。:{}", e);
+            }
+            info!("PIDファイルを削除しました。");
+        } else {
+            warn!("PIDファイルは有効化されていないため、削除は行いませんでした。");
+        };
     }
 }
