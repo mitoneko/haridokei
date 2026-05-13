@@ -65,6 +65,19 @@ pub fn notify_systemd_ready() {
     });
 }
 
+/// systemdに終了を通知する。
+pub fn notify_systemd_stopping() {
+    let stopping_message = "針時計を終了しました。";
+    info!("{}", stopping_message);
+    sd_notify::notify(&[
+        sd_notify::NotifyState::Stopping,
+        sd_notify::NotifyState::Status(stopping_message),
+    ])
+    .unwrap_or_else(|e| {
+        error!("systemdへの通知に失敗しました。:{}", e);
+    });
+}
+
 /// PIDファイルの維持管理を行う
 pub struct PidFile {
     file: File,
