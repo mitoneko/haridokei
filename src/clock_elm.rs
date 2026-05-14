@@ -51,8 +51,10 @@ impl Clock {
         window: &mut Window,
         minute: f32,
         second: f32,
+        millis: f32,
     ) {
-        let arg = (360. / 60.) * minute + (360. / (60. * 60.)) * second;
+        let arg = (360. / 60.) * minute
+            + ((360. / (60. * 60.)) * second + (360. / (60. * 60. * 1000.)) * millis);
         let mut path = PathBuilder::fill();
         path.move_to(bounds.origin);
         path.line_to(Point::new(-(self.radius * 0.04), -(self.radius * 0.3)));
@@ -72,8 +74,10 @@ impl Clock {
         window: &mut Window,
         hour: f32,
         minute: f32,
+        second: f32,
     ) {
-        let arg = (360. / 12.) * hour + (360. / (12. * 60.)) * minute;
+        let arg = (360. / 12.) * hour
+            + ((360. / (12. * 60.)) * minute + (360. / (12. * 60. * 60.)) * second);
         let mut path = PathBuilder::fill();
         path.move_to(bounds.origin);
         path.line_to(Point::new(-(self.radius * 0.06), -(self.radius * 0.2)));
@@ -124,8 +128,8 @@ impl Element for Clock {
         let second = now.second() as f32;
         let millis = now.timestamp_subsec_millis() as f32;
         self.paint_second_hand(bounds, window, second, millis);
-        self.paint_long_hand(bounds, window, minute, second);
-        self.paint_short_hand(bounds, window, hour, minute);
+        self.paint_long_hand(bounds, window, minute, second, millis);
+        self.paint_short_hand(bounds, window, hour, minute, second);
     }
 
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
