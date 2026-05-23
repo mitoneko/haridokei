@@ -36,10 +36,10 @@ pub fn open_main_window(app: &mut App) {
         cx.on_app_quit(|app| {
             let setting: &mut GlobalSetting = app.global_mut();
             let setting_file: GlobalSettingFile = setting.clone().into();
-            confy::store(global_setting::APP_NAME, None, setting_file).unwrap_or_else(|e| {
-                error!("設定ファイルの保存に失敗しました。:{e}");
-            });
-            info!("設定ファイルを保存しました。");
+            match confy::store(global_setting::APP_NAME, None, setting_file) {
+                Ok(_) => info!("設定ファイルを保存しました。"),
+                Err(e) => error!("設定ファイルの保存に失敗しました。:{e}"),
+            };
             async {}
         })
         .detach();
