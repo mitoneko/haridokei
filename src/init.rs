@@ -67,8 +67,7 @@ pub fn notify_systemd_ready() {
 
 /// systemdに終了を通知する。
 pub fn notify_systemd_stopping() {
-    let stopping_message = "針時計を終了しました。";
-    info!("{}", stopping_message);
+    let stopping_message = "針時計を終了します。";
     sd_notify::notify(&[
         sd_notify::NotifyState::Stopping,
         sd_notify::NotifyState::Status(stopping_message),
@@ -76,6 +75,7 @@ pub fn notify_systemd_stopping() {
     .unwrap_or_else(|e| {
         error!("systemdへの通知に失敗しました。:{}", e);
     });
+    info!("{}", stopping_message);
 }
 
 /// PIDファイルの維持管理を行う

@@ -100,6 +100,7 @@ impl Render for ClockWindow {
     fn render(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.is_terminate.load(std::sync::atomic::Ordering::Relaxed) {
             info!("終了シグナルを受信しました。終了処理に入ります。");
+            crate::init::notify_systemd_stopping();
             cx.quit();
         }
         let win_size = window.bounds().size;
