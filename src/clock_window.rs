@@ -34,6 +34,7 @@ pub fn open_main_window(app: &mut App) {
     };
     app.open_window(win_opt, |win, cx| {
         cx.on_app_quit(|app| {
+            crate::init::notify_systemd_stopping();
             let setting: &mut GlobalSetting = app.global_mut();
             let setting_file: GlobalSettingFile = setting.clone().into();
             match confy::store(global_setting::APP_NAME, None, setting_file) {
@@ -100,7 +101,6 @@ impl Render for ClockWindow {
     fn render(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.is_terminate.load(std::sync::atomic::Ordering::Relaxed) {
             info!("終了シグナルを受信しました。終了処理に入ります。");
-            crate::init::notify_systemd_stopping();
             cx.quit();
         }
         let win_size = window.bounds().size;
