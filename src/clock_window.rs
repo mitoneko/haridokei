@@ -33,15 +33,17 @@ pub fn open_main_window(app: &mut App) {
         ..Default::default()
     };
     app.open_window(win_opt, |win, cx| {
-        win.on_window_should_close(cx, |win, app| {
+        cx.on_app_quit(|app| {
+            crate::init::notify_systemd_stopping();
             let setting: &mut GlobalSetting = app.global_mut();
-            setting.set_bounds(win.bounds());
             let setting_file: GlobalSettingFile = setting.clone().into();
-            confy::store(global_setting::APP_NAME, None, setting_file).unwrap_or_else(|e| {
-                error!("設定ファイルの保存に失敗しました。:{e}");
-            });
-            true
-        });
+            match confy::store(global_setting::APP_NAME, None, setting_file) {
+                Ok(_) => info!("設定ファイルを保存しました。"),
+                Err(e) => error!("設定ファイルの保存に失敗しました。:{e}"),
+            };
+            async {}
+        })
+        .detach();
         cx.new(|cx| {
             let win_size = win.bounds().size;
             let global_setting: &GlobalSetting = cx.global();
@@ -112,6 +114,7 @@ impl Render for ClockWindow {
         })
         .detach();
         self.base_image.set_size(win_size);
+        cx.global_mut::<GlobalSetting>().set_bounds(window.bounds());
         Clock::new(self.base_image.image())
     }
 }

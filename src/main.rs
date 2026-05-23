@@ -47,6 +47,7 @@ fn main() -> Result<()> {
 
         notify_systemd_ready();
     });
-    init::notify_systemd_stopping();
+    //init::notify_systemd_stopping();
+    info!("針時計を終了しました。");
     Ok(())
 }
