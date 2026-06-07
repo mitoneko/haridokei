@@ -3,7 +3,6 @@ use std::sync::{Arc, atomic::AtomicBool};
 use gpui::{
     App, AsyncApp, Pixels, Size, TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size,
 };
-use imageproc::point::Point;
 use log::{error, info};
 
 use crate::{
@@ -74,26 +73,6 @@ impl ClockWindow {
             base_image: ClockBaseImage::new(size, background_color),
             is_terminate,
         }
-    }
-
-    /// 点の集合を回転させる
-    #[allow(dead_code)]
-    fn rotate_points<I: Iterator<Item = Point<f32>>>(
-        &self,
-        points: I,
-        origin: Point<f32>,
-        angle: f32,
-    ) -> Vec<Point<f32>> {
-        points
-            .map(|p| {
-                let translated = p - origin;
-                let rotated = Point::new(
-                    translated.x * angle.cos() - translated.y * angle.sin(),
-                    translated.x * angle.sin() + translated.y * angle.cos(),
-                );
-                rotated + origin
-            })
-            .collect()
     }
 }
 
