@@ -3,13 +3,9 @@ use std::sync::{Arc, atomic::AtomicBool};
 use gpui::{
     App, AsyncApp, Pixels, Size, TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size,
 };
-use log::{error, info};
+use log::info;
 
-use crate::{
-    clock_base_image::ClockBaseImage,
-    clock_elm::Clock,
-    global_setting::{self, GlobalSetting, GlobalSettingFile},
-};
+use crate::{clock_base_image::ClockBaseImage, clock_elm::Clock, global_setting::GlobalSetting};
 
 /// タイトルバーの表示名
 const TITLE_NAME: &str = "Haridokei";
@@ -32,17 +28,6 @@ pub fn open_main_window(app: &mut App) {
         ..Default::default()
     };
     app.open_window(win_opt, |win, cx| {
-        cx.on_app_quit(|app| {
-            crate::init::notify_systemd_stopping();
-            let setting: &mut GlobalSetting = app.global_mut();
-            let setting_file: GlobalSettingFile = setting.clone().into();
-            match confy::store(global_setting::APP_NAME, None, setting_file) {
-                Ok(_) => info!("設定ファイルを保存しました。"),
-                Err(e) => error!("設定ファイルの保存に失敗しました。:{e}"),
-            };
-            async {}
-        })
-        .detach();
         cx.new(|cx| {
             let win_size = win.bounds().size;
             let global_setting: &GlobalSetting = cx.global();
@@ -79,17 +64,19 @@ impl ClockWindow {
 impl Render for ClockWindow {
     fn render(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.is_terminate.load(std::sync::atomic::Ordering::Relaxed) {
+            crate::init::notify_systemd_stopping();
             info!("終了シグナルを受信しました。終了処理に入ります。");
             cx.quit();
         }
         let win_size = window.bounds().size;
         let entity_id = cx.entity_id();
         cx.spawn(async move |_, cx: &mut AsyncApp| {
-            gpui::Timer::after(std::time::Duration::from_millis(33)).await;
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(33))
+                .await;
             cx.update(|cx| {
                 cx.notify(entity_id);
-            })
-            .unwrap();
+            });
         })
         .detach();
         self.base_image.set_size(win_size);

@@ -5,6 +5,8 @@ mod global_setting;
 mod init;
 mod options;
 
+use std::sync::{Arc, Mutex};
+
 use anyhow::Result;
 use clap::Parser;
 use log::{error, info};
@@ -20,11 +22,12 @@ fn main() -> Result<()> {
     init::init_logging(&options); // ロギング機構初期化
 
     // 設定ファイルの読み込み
-    let global_setting: GlobalSettingFile = confy::load(global_setting::APP_NAME, None)
+    let global_setting_file_read: GlobalSettingFile = confy::load(global_setting::APP_NAME, None)
         .unwrap_or_else(|e| {
             error!("設定ファイルの読み込みに失敗。デフォルト値を使用します。:{e}");
             GlobalSettingFile::default()
         });
+    let global_setting_file = Arc::new(Mutex::new(global_setting_file_read));
 
     let mut pid_file = init::PidFile::new().inspect_err(|e| {
         error!("PIDファイルの生成に失敗しました。:{e:?}");
@@ -36,18 +39,27 @@ fn main() -> Result<()> {
     };
 
     let is_terminate = init::register_signal_handler();
-    let global_setting = GlobalSetting::new(global_setting, is_terminate);
+    let global_setting = GlobalSetting::new(global_setting_file.clone(), is_terminate);
 
     info!("針時計を開始しました。");
 
-    // gpui初期化
-    gpui::Application::new().run(move |app| {
+    // アプリケーションの実行
+    gpui_platform::application().run(move |app| {
         app.set_global(global_setting);
         open_main_window(app);
 
         notify_systemd_ready();
     });
-    //init::notify_systemd_stopping();
+
+    // 設定ファイルの保存。
+    match confy::store(
+        global_setting::APP_NAME,
+        None,
+        global_setting_file.lock().unwrap().clone(),
+    ) {
+        Ok(_) => info!("設定ファイルを保存しました。"),
+        Err(e) => error!("設定ファイルの保存に失敗しました。:{e}"),
+    };
     info!("針時計を終了しました。");
     Ok(())
 }
