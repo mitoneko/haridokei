@@ -36,6 +36,7 @@ pub fn open_main_window(app: &mut App) {
             ClockWindow::new(
                 win_size,
                 clock_background_color,
+                global_setting.font_family(),
                 global_setting.is_terminated(),
                 win,
             )
@@ -54,6 +55,7 @@ impl ClockWindow {
     pub fn new(
         size: Size<Pixels>,
         background_color: [u8; 4],
+        font_family: String,
         is_terminate: Arc<AtomicBool>,
         window: &mut Window,
     ) -> Self {
@@ -61,6 +63,7 @@ impl ClockWindow {
             base_image: Arc::new(Mutex::new(ClockBaseImage::new(
                 size,
                 background_color,
+                font_family,
                 window,
             ))),
             is_terminate,

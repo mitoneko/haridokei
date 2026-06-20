@@ -11,12 +11,18 @@ pub struct ClockBaseImage {
     center: Point<Pixels>,
     radius: f32,
     clock_background_color: Rgba,
+    font_family: String,
     img_path: Vec<(Path<Pixels>, Rgba)>,
     num_shape_lines: Vec<(ShapedLine, Point<Pixels>, Pixels)>,
 }
 
 impl ClockBaseImage {
-    pub fn new(size: Size<Pixels>, clock_background_color: [u8; 4], window: &mut Window) -> Self {
+    pub fn new(
+        size: Size<Pixels>,
+        clock_background_color: [u8; 4],
+        font_family: String,
+        window: &mut Window,
+    ) -> Self {
         let center = Point::new(size.width / 2.0, size.height / 2.0);
         let radius = size.width.min(size.height).as_f32() / 2.0;
         let color_value = clock_background_color
@@ -31,6 +37,7 @@ impl ClockBaseImage {
             center,
             radius,
             clock_background_color: back_ground_color,
+            font_family,
             img_path,
             num_shape_lines,
         };
@@ -150,7 +157,7 @@ impl ClockBaseImage {
         const NUM_POSITION_RATE: f32 = 0.70;
         let font_size = px(self.radius() * FONT_SIZE_RATE);
         let font = Font {
-            family: "Fraunces".into(),
+            family: self.font_family.clone().into(),
             features: FontFeatures::default(),
             fallbacks: Some(FontFallbacks::from_fonts(vec![".SystemUIFont".into()])),
             weight: FontWeight::default(),

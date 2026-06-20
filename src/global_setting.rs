@@ -34,6 +34,10 @@ impl GlobalSetting {
     pub fn is_terminated(&self) -> Arc<AtomicBool> {
         self.is_terminated.clone()
     }
+
+    pub fn font_family(&self) -> String {
+        self.save_item.lock().unwrap().font_family.clone()
+    }
 }
 
 impl gpui::Global for GlobalSetting {}
@@ -44,6 +48,7 @@ impl gpui::Global for GlobalSetting {}
 pub struct GlobalSettingFile {
     bounds: Bounds<Pixels>,
     clock_background_color: [u8; 4],
+    font_family: String,
 }
 
 impl Default for GlobalSettingFile {
@@ -53,6 +58,7 @@ impl Default for GlobalSettingFile {
         Self {
             bounds: Bounds::new(origin, size),
             clock_background_color: [0, 255, 255, 255],
+            font_family: ".SystemUIFont".into(),
         }
     }
 }
