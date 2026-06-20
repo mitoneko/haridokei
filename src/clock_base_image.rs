@@ -1,202 +1,204 @@
-use std::{
-    f32::consts::PI,
-    sync::{Arc, Mutex},
-};
+use std::f32::consts::PI;
 
-use ab_glyph::FontArc;
-use gpui::{Pixels, RenderImage, Size};
-use image::{Frame, Rgba};
-use imageproc::{
-    drawing::{draw_filled_circle_mut, draw_polygon_mut, draw_text_mut, text_size},
-    point::Point,
+use gpui::{
+    Font, FontFallbacks, FontFeatures, FontStyle, FontWeight, Path, PathBuilder, Pixels, Point,
+    Rgba, ShapedLine, Size, TextAlign, TextRun, Window, px, rgba,
 };
-
-type ImageBuffer = image::ImageBuffer<Rgba<u8>, Vec<u8>>;
+use log::error;
 
 pub struct ClockBaseImage {
     size: Size<Pixels>,
-    center: Point<f32>,
+    center: Point<Pixels>,
     radius: f32,
-    img: ImageBuffer,
-    render_image: Mutex<Option<Arc<RenderImage>>>,
-    clock_background_color: Rgba<u8>,
+    clock_background_color: Rgba,
+    font_family: String,
+    img_path: Vec<(Path<Pixels>, Rgba)>,
+    num_shape_lines: Vec<(ShapedLine, Point<Pixels>, Pixels)>,
 }
 
 impl ClockBaseImage {
-    pub fn new(size: Size<Pixels>, clock_background_color: [u8; 4]) -> Self {
-        let center = Point::new(
-            size.width.to_f64() as f32 / 2.0,
-            size.height.to_f64() as f32 / 2.0,
-        );
-        let radius = size.width.min(size.height).to_f64() as f32 / 2.0;
-        let back_ground_color = Rgba::from([0, 0, 0, 0]);
-        let img = ImageBuffer::from_pixel(
-            size.width.to_f64() as u32,
-            size.height.to_f64() as u32,
-            back_ground_color,
-        );
+    pub fn new(
+        size: Size<Pixels>,
+        clock_background_color: [u8; 4],
+        font_family: String,
+        window: &mut Window,
+    ) -> Self {
+        let center = Point::new(size.width / 2.0, size.height / 2.0);
+        let radius = size.width.min(size.height).as_f32() / 2.0;
+        let color_value = clock_background_color
+            .iter()
+            .fold(0, |acc, &c| (acc << 8) + c as u32);
+        let back_ground_color = gpui::rgba(color_value);
+        let img_path = Vec::new();
+        let num_shape_lines = Vec::new();
 
         let mut obj = Self {
             size,
             center,
             radius,
-            img,
-            render_image: Mutex::new(None),
-            clock_background_color: Rgba::from(clock_background_color),
+            clock_background_color: back_ground_color,
+            font_family,
+            img_path,
+            num_shape_lines,
         };
-        obj.make_clock_base();
+        obj.make_clock_base(window);
         obj
     }
 
-    pub fn image(&self) -> Arc<RenderImage> {
-        let mut render_image = self.render_image.lock().unwrap();
-        if (*render_image).is_none() {
-            let frame = Frame::new(self.img.clone());
-            let new_render_image = Arc::new(RenderImage::new([frame]));
-            *render_image = Some(new_render_image);
+    /// 時計背景のイメージを描画する。
+    pub fn paint_clock_base(&self, window: &mut gpui::Window, cx: &mut gpui::App) {
+        for (path, color) in self.img_path.iter() {
+            window.paint_path(path.clone(), *color);
         }
-        (*render_image).as_ref().unwrap().clone()
+        for (shaped_line, origin, font_size) in self.num_shape_lines.iter() {
+            shaped_line
+                .paint(
+                    *origin,
+                    *font_size,
+                    TextAlign::default(),
+                    Some(shaped_line.width()),
+                    window,
+                    cx,
+                )
+                .unwrap_or_else(|e| error!("文字盤の数字の描画に失敗しました。:({e})"));
+        }
     }
 
-    pub fn set_size(&mut self, size: Size<Pixels>) {
+    pub fn center(&self) -> Point<Pixels> {
+        self.center
+    }
+
+    pub fn radius(&self) -> f32 {
+        self.radius
+    }
+
+    pub fn set_size(&mut self, size: Size<Pixels>, window: &mut Window) {
         if self.size != size {
             self.size = size;
-            self.center = Point::new(
-                size.width.to_f64() as f32 / 2.0,
-                size.height.to_f64() as f32 / 2.0,
-            );
-            self.radius = size.width.min(size.height).to_f64() as f32 / 2.0;
-            let back_ground_color = Rgba::from([0, 0, 0, 0]);
-            self.img = ImageBuffer::from_pixel(
-                size.width.to_f64() as u32,
-                size.height.to_f64() as u32,
-                back_ground_color,
-            );
-            self.make_clock_base();
-            let mut render_image = self.render_image.lock().unwrap();
-            *render_image = None;
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            self.center = Point::new(size.width / 2.0, size.height / 2.0);
+            self.radius = size.width.min(size.height).as_f32() / 2.0;
+            self.make_clock_base(window);
         }
     }
 
-    /// 時計の背景を生成する。
-    fn make_clock_base(&mut self) {
-        self.draw_clock_background(self.clock_background_color);
+    /// 時計の背景のイメージを生成する。
+    fn make_clock_base(&mut self, window: &mut Window) {
+        self.img_path.clear();
+        self.num_shape_lines.clear();
+        self.draw_clock_background();
         self.draw_major_scale();
         self.draw_center_pin();
         self.draw_miner_scale();
-        self.draw_numbers();
+        self.draw_numbers(window);
     }
 
-    fn draw_clock_background(&mut self, back_ground_color: Rgba<u8>) {
-        let center = (self.center.x as i32, self.center.y as i32);
-        draw_filled_circle_mut(&mut self.img, center, self.radius as i32, back_ground_color);
+    fn draw_clock_background(&mut self) {
+        let mut path_bld = PathBuilder::fill();
+        self.draw_circle(&mut path_bld, self.center, self.radius);
+        match path_bld.build() {
+            Ok(path) => self.img_path.push((path, self.clock_background_color)),
+            Err(e) => error!("時計背景の丸の描画に失敗({e})"),
+        }
     }
 
     /// 大目盛りの描画を行う
     fn draw_major_scale(&mut self) {
-        let width = Point::new(self.radius / 10.0, 0.0);
-        let height = Point::new(0.0, self.radius / 30.0);
-        let first_point = self.center + Point::new(self.radius * 0.98, height.y / 2.0);
-        let rectangle_points = [
-            first_point,
-            first_point - height,
-            first_point - height - width,
-            first_point - width,
-        ];
-
+        let width = Point::new(px(self.radius / 10.0), px(0.0));
+        let height = Point::new(px(0.0), px(self.radius / 30.0));
+        let first_point = Point::new(px(self.radius * 0.98), height.y / 2.0);
         for i in 0..12 {
-            let angle = (2.0 * PI) / 12.0 * i as f32;
-            let points = rectangle_points.into_iter();
-            let rotated_points: Vec<Point<i32>> = self
-                .rotate_points(points, self.center, angle)
-                .iter()
-                .map(|p| Point::new(p.x as i32, p.y as i32))
-                .collect();
-            draw_polygon_mut(&mut self.img, &rotated_points, Rgba::from([0, 0, 0, 255]));
+            let mut path_bld = PathBuilder::fill();
+            path_bld.move_to(first_point);
+            path_bld.line_to(first_point - height);
+            path_bld.line_to(first_point - height - width);
+            path_bld.line_to(first_point - width);
+            path_bld.close();
+            let angle = (360.0 / 12.0) * i as f32;
+            path_bld.rotate(angle);
+            path_bld.translate(self.center);
+            match path_bld.build() {
+                Ok(path) => self.img_path.push((path, gpui::rgba(0x000000ff))),
+                Err(e) => error!("大目盛りの描画に失敗({e})"),
+            }
         }
     }
 
     /// センターピンの描画を行う
     fn draw_center_pin(&mut self) {
-        let center = (self.center.x as i32, self.center.y as i32);
-        draw_filled_circle_mut(
-            &mut self.img,
-            center,
-            (self.radius / 20.0) as i32,
-            Rgba::from([0, 0, 0, 255]),
-        );
+        let mut path_bld = PathBuilder::fill();
+        self.draw_circle(&mut path_bld, self.center, self.radius / 20.0);
+        match path_bld.build() {
+            Ok(path) => self.img_path.push((path, gpui::rgba(0x000000ff))),
+            Err(e) => error!("センターピンの描画に失敗({e})"),
+        }
     }
 
     /// 小目盛りの描画を行う
     fn draw_miner_scale(&mut self) {
-        let first_point = self.center + Point::new(self.radius * 0.93, 0.0);
+        let first_point = Point::new(px(self.radius * 0.93), px(0.0));
         let scale_radius = self.radius / 60.0;
         let indexs = (0..60).filter(|i| i % 5 != 0);
         for i in indexs {
-            let angle = (2.0 * PI) / 60.0 * i as f32;
-            let scale_center = self.rotate_points([first_point].into_iter(), self.center, angle)[0];
-            draw_filled_circle_mut(
-                &mut self.img,
-                (scale_center.x as i32, scale_center.y as i32),
-                scale_radius as i32,
-                Rgba::from([0, 0, 0, 255]),
-            );
+            let mut path_bld = PathBuilder::fill();
+            let angle = (360.0 / 60.0) * i as f32;
+            self.draw_circle(&mut path_bld, first_point, scale_radius);
+            path_bld.rotate(angle);
+            path_bld.translate(self.center);
+            match path_bld.build() {
+                Ok(path) => self.img_path.push((path, gpui::rgba(0x000000ff))),
+                Err(e) => error!("小目盛りの描画に失敗({e})"),
+            }
         }
     }
 
     /// 文字盤の数字を描画する
-    fn draw_numbers(&mut self) {
-        let font = FontArc::try_from_slice(include_bytes!("../resource/Fraunces.ttf")).unwrap();
-        let font_size_base = self.radius / 3.0;
-        let first_point_center = self.center + Point::new(self.radius * 0.7, 0.0);
-        for i in 0..12 {
-            let text = format!("{}", (i + 2) % 12 + 1);
-            let font_size = if text.len() == 1 {
-                font_size_base
-            } else {
-                font_size_base * 0.9
-            };
-            let angle = (2.0 * PI) / 12.0 * i as f32;
-            let point_center =
-                self.rotate_points([first_point_center].into_iter(), self.center, angle)[0];
-            let text_size = text_size(font_size, &font, &text);
-            let text_point =
-                point_center - Point::new(text_size.0 as f32 / 2.0, text_size.1 as f32 / 2.0);
-            draw_text_mut(
-                &mut self.img,
-                Rgba::from([0, 0, 0, 255]),
-                text_point.x as i32,
-                text_point.y as i32,
+    fn draw_numbers(&mut self, window: &mut Window) {
+        const FONT_SIZE_RATE: f32 = 0.25;
+        const NUM_POSITION_RATE: f32 = 0.70;
+        let font_size = px(self.radius() * FONT_SIZE_RATE);
+        let font = Font {
+            family: self.font_family.clone().into(),
+            features: FontFeatures::default(),
+            fallbacks: Some(FontFallbacks::from_fonts(vec![".SystemUIFont".into()])),
+            weight: FontWeight::default(),
+            style: FontStyle::default(),
+        };
+        let num_strs = [
+            "12", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11",
+        ];
+        let mut text_run = TextRun {
+            len: 0,
+            font,
+            color: rgba(0x000000ff).into(),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        for (i, num_str) in num_strs.iter().enumerate() {
+            let angle = 2.0 * PI * i as f32 / 12.0;
+            text_run.len = num_str.len();
+            let shaped_line = window.text_system().shape_line(
+                (*num_str).into(),
                 font_size,
-                &font,
-                &text,
+                std::slice::from_ref(&text_run),
+                None,
             );
+            let x = (self.radius() * NUM_POSITION_RATE) * f32::sin(angle);
+            let y = -(self.radius() * NUM_POSITION_RATE) * f32::cos(angle);
+            let mut origin = Point::new(px(x), px(y)) + self.center;
+            origin += Point::new(-shaped_line.width() / 2.0, -font_size / 2.0);
+            self.num_shape_lines.push((shaped_line, origin, font_size));
         }
     }
 
-    /// 点の集合を回転させる
-    fn rotate_points<I: Iterator<Item = Point<f32>>>(
-        &self,
-        points: I,
-        origin: Point<f32>,
-        angle: f32,
-    ) -> Vec<Point<f32>> {
-        points
-            .map(|p| {
-                let translated = p - origin;
-                let rotated = Point::new(
-                    translated.x * angle.cos() - translated.y * angle.sin(),
-                    translated.x * angle.sin() + translated.y * angle.cos(),
-                );
-                rotated + origin
-            })
-            .collect()
-    }
-}
-
-impl From<ClockBaseImage> for Arc<RenderImage> {
-    fn from(value: ClockBaseImage) -> Self {
-        value.image()
+    /// 円を描画する
+    fn draw_circle(&mut self, path_bld: &mut PathBuilder, center: Point<Pixels>, radius: f32) {
+        let point_up = Point::new(px(0.0), px(radius));
+        let point_down = Point::new(px(0.0), px(-radius));
+        let radii = Point::new(px(radius), px(radius));
+        path_bld.move_to(point_up);
+        path_bld.arc_to(radii, px(0.0), true, true, point_down);
+        path_bld.arc_to(radii, px(0.0), true, true, point_up);
+        path_bld.translate(center);
     }
 }
