@@ -9,8 +9,8 @@ gpui = { git = "https://github.com/zed-industries/zed" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["font-kit", "wayland", "x11"] }
 log = "0.4.29"
 systemd-journal-logger = "2.2.2"
-image = "0.25"
-imageproc = "0.27"
+#image = "0.25"
+#imageproc = "0.27"
 ab_glyph = "0.2.32"
 chrono = { version = "0.4.44", features = ["clock"] }
 clap = { version = "4.6.1", features = ["derive"] }

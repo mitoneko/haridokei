@@ -1,1 +1,8 @@
+/doc.html
 /target
+/tex/*.out
+/tex/*.log
+/tex/*.aux
+/tex/*.toc
+/tex/*.lof
+/tex/src

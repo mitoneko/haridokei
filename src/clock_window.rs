@@ -1,4 +1,4 @@
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 use gpui::{
     App, AsyncApp, Pixels, Size, TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size,
@@ -44,7 +44,7 @@ pub fn open_main_window(app: &mut App) {
 
 /// 時計を表示するコンテキスト
 pub struct ClockWindow {
-    base_image: ClockBaseImage,
+    base_image: Arc<Mutex<ClockBaseImage>>,
     is_terminate: Arc<AtomicBool>,
 }
 
@@ -55,7 +55,7 @@ impl ClockWindow {
         is_terminate: Arc<AtomicBool>,
     ) -> Self {
         Self {
-            base_image: ClockBaseImage::new(size, background_color),
+            base_image: Arc::new(Mutex::new(ClockBaseImage::new(size, background_color))),
             is_terminate,
         }
     }
@@ -79,8 +79,8 @@ impl Render for ClockWindow {
             });
         })
         .detach();
-        self.base_image.set_size(win_size);
+        self.base_image.lock().unwrap().set_size(win_size);
         cx.global_mut::<GlobalSetting>().set_bounds(window.bounds());
-        Clock::new(self.base_image.image())
+        Clock::new(self.base_image.clone())
     }
 }

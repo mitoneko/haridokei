@@ -1,0 +1,37 @@
+\documentclass[paper=a4paper, fontsize=10pt, head_space=10mm, foot_space=17mm, gutter=17mm, line_length=185mm, twoside]{jlreq}
+\usepackage{minted}
+\usepackage{hyperref}
+\pagestyle{plain}
+
+\title{haridokei ソースリスト}
+\author{美都}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\clearpage
+
+\section{Rustソース}
+\subsection{メインモジュール　main.rs}
+\inputminted[linenos, breaklines]{rust}{src/main.rs}
+\clearpage
+\subsection{初期化 init.rs}
+\inputminted[linenos, breaklines]{rust}{src/init.rs}
+\clearpage
+\subsection{時計ウィンドウの表示 clock\_window.rs}
+\inputminted[linenos, breaklines]{rust}{src/clock_window.rs}
+\clearpage
+\subsection{時計エレメント clock\_elm.rs}
+\inputminted[linenos, breaklines]{rust}{src/clock_elm.rs}
+\clearpage
+\subsection{時計のベースイメージの生成 clock\_base\_image.rs}
+\inputminted[linenos, breaklines]{rust}{src/clock_base_image.rs}
+\clearpage
+\subsection{アプリケーションの設定情報 global\_setting.rs}
+\inputminted[linenos, breaklines]{rust}{src/global_setting.rs}
+\clearpage
+\subsection{アプリケーションの引数管理 options.rs}
+\inputminted[linenos, breaklines]{rust}{src/options.rs}
+\clearpage
+\end{document}

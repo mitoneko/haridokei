@@ -1,25 +1,27 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use chrono::{Local, Timelike};
-use gpui::{
-    App, Bounds, Corners, PathBuilder, Pixels, Point, RenderImage, Style, Window, prelude::*, px,
-    rgba,
-};
-use log::error;
+use gpui::{App, Bounds, PathBuilder, Pixels, Point, Style, Window, fill, prelude::*, px, rgba};
+
+use crate::clock_base_image::ClockBaseImage;
 
 /// 時計を表示するためのElement
 pub struct Clock {
-    base_image: Arc<RenderImage>,
+    base_image: Arc<Mutex<ClockBaseImage>>,
     center: Point<Pixels>,
     radius: Pixels,
 }
 
 impl Clock {
-    pub fn new(base_image: Arc<RenderImage>) -> Self {
+    pub fn new(base_image: Arc<Mutex<ClockBaseImage>>) -> Self {
+        let (center, radius) = {
+            let base_image = base_image.lock().unwrap();
+            (base_image.center(), px(base_image.radius()))
+        };
         Self {
             base_image,
-            center: Point::default(),
-            radius: Pixels::default(),
+            center,
+            radius,
         }
     }
 
@@ -103,30 +105,26 @@ impl Element for Clock {
         _request_layout: &mut Self::RequestLayoutState,
         _prepaint: &mut Self::PrepaintState,
         window: &mut Window,
-        _cx: &mut App,
+        cx: &mut App,
     ) {
-        // 時計のベースイメージを描画
-        window
-            .paint_image(
-                bounds,
-                Corners::default(),
-                self.base_image.clone(),
-                0,
-                false,
-            )
-            .unwrap_or_else(|e| error!("背景の描画に失敗:{}", e));
-        self.center = Point::new(bounds.size.width, bounds.size.height) / 2.0;
-        self.radius = if bounds.size.width < bounds.size.height {
-            bounds.size.width / 2.0
-        } else {
-            bounds.size.height / 2.0
-        };
         let now = Local::now();
         let (_, hour) = now.hour12();
         let hour = (hour % 12) as f32;
         let minute = now.minute() as f32;
         let second = now.second() as f32;
         let millis = now.timestamp_subsec_millis() as f32;
+
+        // windowのクリア
+        let size = bounds.size;
+        let bounds = Bounds {
+            origin: Point::new(px(0.0), px(0.0)),
+            size,
+        };
+        let rect = fill(bounds, rgba(0x00000000));
+        window.paint_quad(rect);
+        // 時計のベースイメージを描画
+        self.base_image.lock().unwrap().paint_clock_base(window, cx);
+        // 針の描画
         self.paint_second_hand(bounds, window, second, millis);
         self.paint_long_hand(bounds, window, minute, second, millis);
         self.paint_short_hand(bounds, window, hour, minute, second);
