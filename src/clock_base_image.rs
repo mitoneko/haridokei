@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 
 use gpui::{
-    App, Font, FontFallbacks, FontFeatures, FontStyle, FontWeight, Path, PathBuilder, Pixels,
-    Point, Rgba, Size, TextAlign, TextRun, Window, px, rgba,
+    Font, FontFallbacks, FontFeatures, FontStyle, FontWeight, Path, PathBuilder, Pixels, Point,
+    Rgba, ShapedLine, Size, TextAlign, TextRun, Window, px, rgba,
 };
 use log::error;
 
@@ -12,10 +12,11 @@ pub struct ClockBaseImage {
     radius: f32,
     clock_background_color: Rgba,
     img_path: Vec<(Path<Pixels>, Rgba)>,
+    num_shape_lines: Vec<(ShapedLine, Point<Pixels>, Pixels)>,
 }
 
 impl ClockBaseImage {
-    pub fn new(size: Size<Pixels>, clock_background_color: [u8; 4]) -> Self {
+    pub fn new(size: Size<Pixels>, clock_background_color: [u8; 4], window: &mut Window) -> Self {
         let center = Point::new(size.width / 2.0, size.height / 2.0);
         let radius = size.width.min(size.height).as_f32() / 2.0;
         let color_value = clock_background_color
@@ -23,15 +24,17 @@ impl ClockBaseImage {
             .fold(0, |acc, &c| (acc << 8) + c as u32);
         let back_ground_color = gpui::rgba(color_value);
         let img_path = Vec::new();
+        let num_shape_lines = Vec::new();
 
         let mut obj = Self {
             size,
             center,
             radius,
-            img_path,
             clock_background_color: back_ground_color,
+            img_path,
+            num_shape_lines,
         };
-        obj.make_clock_base();
+        obj.make_clock_base(window);
         obj
     }
 
@@ -40,7 +43,18 @@ impl ClockBaseImage {
         for (path, color) in self.img_path.iter() {
             window.paint_path(path.clone(), *color);
         }
-        self.draw_numbers(window, cx);
+        for (shaped_line, origin, font_size) in self.num_shape_lines.iter() {
+            shaped_line
+                .paint(
+                    *origin,
+                    *font_size,
+                    TextAlign::default(),
+                    Some(shaped_line.width()),
+                    window,
+                    cx,
+                )
+                .unwrap_or_else(|e| error!("文字盤の数字の描画に失敗しました。:({e})"));
+        }
     }
 
     pub fn center(&self) -> Point<Pixels> {
@@ -51,22 +65,24 @@ impl ClockBaseImage {
         self.radius
     }
 
-    pub fn set_size(&mut self, size: Size<Pixels>) {
+    pub fn set_size(&mut self, size: Size<Pixels>, window: &mut Window) {
         if self.size != size {
             self.size = size;
             self.center = Point::new(size.width / 2.0, size.height / 2.0);
             self.radius = size.width.min(size.height).as_f32() / 2.0;
-            self.make_clock_base();
+            self.make_clock_base(window);
         }
     }
 
     /// 時計の背景のイメージを生成する。
-    fn make_clock_base(&mut self) {
+    fn make_clock_base(&mut self, window: &mut Window) {
         self.img_path.clear();
+        self.num_shape_lines.clear();
         self.draw_clock_background();
         self.draw_major_scale();
         self.draw_center_pin();
         self.draw_miner_scale();
+        self.draw_numbers(window);
     }
 
     fn draw_clock_background(&mut self) {
@@ -129,7 +145,7 @@ impl ClockBaseImage {
     }
 
     /// 文字盤の数字を描画する
-    fn draw_numbers(&self, window: &mut Window, cx: &mut App) {
+    fn draw_numbers(&mut self, window: &mut Window) {
         const FONT_SIZE_RATE: f32 = 0.25;
         const NUM_POSITION_RATE: f32 = 0.70;
         let font_size = px(self.radius() * FONT_SIZE_RATE);
@@ -164,16 +180,7 @@ impl ClockBaseImage {
             let y = -(self.radius() * NUM_POSITION_RATE) * f32::cos(angle);
             let mut origin = Point::new(px(x), px(y)) + self.center;
             origin += Point::new(-shaped_line.width() / 2.0, -font_size / 2.0);
-            shaped_line
-                .paint(
-                    origin,
-                    font_size,
-                    TextAlign::default(),
-                    Some(shaped_line.width()),
-                    window,
-                    cx,
-                )
-                .unwrap_or_else(|e| error!("文字盤の数字の描画に失敗しました。:({e})"));
+            self.num_shape_lines.push((shaped_line, origin, font_size));
         }
     }
 

@@ -1,7 +1,8 @@
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 use gpui::{
-    App, AsyncApp, Pixels, Size, TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size,
+    App, AsyncApp, Pixels, Size, TitlebarOptions, Window, WindowBounds, WindowOptions, prelude::*,
+    px, size,
 };
 use log::info;
 
@@ -36,6 +37,7 @@ pub fn open_main_window(app: &mut App) {
                 win_size,
                 clock_background_color,
                 global_setting.is_terminated(),
+                win,
             )
         })
     })
@@ -53,9 +55,14 @@ impl ClockWindow {
         size: Size<Pixels>,
         background_color: [u8; 4],
         is_terminate: Arc<AtomicBool>,
+        window: &mut Window,
     ) -> Self {
         Self {
-            base_image: Arc::new(Mutex::new(ClockBaseImage::new(size, background_color))),
+            base_image: Arc::new(Mutex::new(ClockBaseImage::new(
+                size,
+                background_color,
+                window,
+            ))),
             is_terminate,
         }
     }
@@ -79,7 +86,7 @@ impl Render for ClockWindow {
             });
         })
         .detach();
-        self.base_image.lock().unwrap().set_size(win_size);
+        self.base_image.lock().unwrap().set_size(win_size, window);
         cx.global_mut::<GlobalSetting>().set_bounds(window.bounds());
         Clock::new(self.base_image.clone())
     }
