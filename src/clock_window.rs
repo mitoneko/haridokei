@@ -52,7 +52,7 @@ pub fn open_main_window(app: &mut App) {
 pub struct ClockWindow {
     base_image: Arc<Mutex<ClockBaseImage>>,
     is_terminate: Arc<AtomicBool>,
-    timer_started: AtomicBool,
+    timer_started: bool,
 }
 
 impl ClockWindow {
@@ -71,7 +71,7 @@ impl ClockWindow {
                 window,
             ))),
             is_terminate,
-            timer_started: AtomicBool::new(false),
+            timer_started: false,
         }
     }
 }
@@ -85,7 +85,8 @@ impl Render for ClockWindow {
         }
         let win_size = window.bounds().size;
         let entity_id = cx.entity_id();
-        if !self.timer_started.swap(true, Ordering::Relaxed) {
+        if !self.timer_started {
+            self.timer_started = true;
             let is_terminate = self.is_terminate.clone();
             cx.spawn(async move |_, cx: &mut AsyncApp| {
                 loop {
