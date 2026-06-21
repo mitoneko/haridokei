@@ -94,7 +94,7 @@ impl Render for ClockWindow {
                         break;
                     }
                     cx.background_executor()
-                        .timer(std::time::Duration::from_millis(33))
+                        .timer(std::time::Duration::from_millis(75))
                         .await;
                     cx.update(|cx| {
                         cx.notify(entity_id);
