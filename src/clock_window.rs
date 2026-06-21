@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use gpui::{
     App, AsyncApp, Pixels, Size, TitlebarOptions, Window, WindowBounds, WindowOptions, prelude::*,
@@ -49,6 +52,7 @@ pub fn open_main_window(app: &mut App) {
 pub struct ClockWindow {
     base_image: Arc<Mutex<ClockBaseImage>>,
     is_terminate: Arc<AtomicBool>,
+    timer_started: AtomicBool,
 }
 
 impl ClockWindow {
@@ -67,6 +71,7 @@ impl ClockWindow {
                 window,
             ))),
             is_terminate,
+            timer_started: AtomicBool::new(false),
         }
     }
 }
@@ -80,15 +85,23 @@ impl Render for ClockWindow {
         }
         let win_size = window.bounds().size;
         let entity_id = cx.entity_id();
-        cx.spawn(async move |_, cx: &mut AsyncApp| {
-            cx.background_executor()
-                .timer(std::time::Duration::from_millis(33))
-                .await;
-            cx.update(|cx| {
-                cx.notify(entity_id);
-            });
-        })
-        .detach();
+        if !self.timer_started.swap(true, Ordering::Relaxed) {
+            let is_terminate = self.is_terminate.clone();
+            cx.spawn(async move |_, cx: &mut AsyncApp| {
+                loop {
+                    if is_terminate.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    cx.background_executor()
+                        .timer(std::time::Duration::from_millis(33))
+                        .await;
+                    cx.update(|cx| {
+                        cx.notify(entity_id);
+                    });
+                }
+            })
+            .detach();
+        }
         self.base_image.lock().unwrap().set_size(win_size, window);
         cx.global_mut::<GlobalSetting>().set_bounds(window.bounds());
         Clock::new(self.base_image.clone())
