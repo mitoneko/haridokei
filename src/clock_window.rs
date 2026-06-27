@@ -4,8 +4,8 @@ use std::sync::{
 };
 
 use gpui::{
-    App, AsyncApp, Pixels, Size, TitlebarOptions, Window, WindowBounds, WindowOptions, prelude::*,
-    px, size,
+    App, AsyncApp, Pixels, Size, TitlebarOptions, Window, WindowBackgroundAppearance, WindowBounds,
+    WindowOptions, prelude::*, px, size,
 };
 use log::info;
 
@@ -29,6 +29,7 @@ pub fn open_main_window(app: &mut App) {
         window_min_size: Some(size(px(50.), px(50.))),
         titlebar: Some(titlebar),
         app_id: Some(APP_ID.into()),
+        window_background: WindowBackgroundAppearance::Transparent,
         ..Default::default()
     };
     app.open_window(win_opt, |win, cx| {
